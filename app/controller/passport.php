@@ -51,9 +51,11 @@ class Passport {
     }
 
     public function put($token) {
-        $passport = $this->getPassport($token);
-        if (!$passport)
-            throw PassportError::not_found($token);
+        if (!$passport = $this->getPassport($token)) {
+            $passport = new \Model\Passport;
+            $prop = is_uuid($token) ? 'sn' : 'email';
+            $passport->setProp($prop, strtolower($token));
+        }
 
         if ($post = post()) {
             if (isset($post['passwd'])) $post['passwd'] = md5($post['passwd']);
