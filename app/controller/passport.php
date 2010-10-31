@@ -5,18 +5,9 @@ use Model\PassportError;
 use Lysine\HttpError;
 
 class Passport {
-    public function beforeRun() {
-        $allow_ip = cfg('allow_ip');
-        $ip = req()->ip();
-
-        if ($allow_ip == '*') return;
-        if ($allow_ip == $ip) return;
-        if (is_array($allow_ip) && in_array($ip, $allow_ip)) return;
-
-        throw HttpError::not_acceptable(array('ip' => $ip));
-    }
-
     public function afterRun(&$response) {
+        if (isset($response['passwd'])) unset($response['passwd']);
+
         if (in_array('application/json', req()->acceptTypes())) {
             $response = json_encode($response);
         } else {

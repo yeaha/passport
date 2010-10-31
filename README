@@ -22,13 +22,7 @@ POST http://passport.demo.ly/passport
 PUT http://passport.demo.ly/passport/yangyi.cn.gz@gmail.com
 修改passport，也可以用来创建新的passport，这是一个幂等操作
 
+http://passport.demo.ly/passport/auth
+接受post方法，根据email和passwd进行验证，成功则返回passport数据
+
 详细的CRUD操作，参考lib/client.php内的实现
-
-一次典型的用户登录流程是：
-1、用户访问app登录页面，填写注册email和密码并提交
-2、app服务器端程序根据提交的email，从passport service获得passport数据
-3、如果返回的passport数据里面包含的密码和用户提交的密码一致，则登录成功
-
-TODO:
-  * 对提交和返回的数据加密，或数据签名
-  * 对客户端隐藏密码细节，直接提供效验接口

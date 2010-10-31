@@ -1,4 +1,41 @@
 <?php
+/**
+ * // passport service客户端
+ * $cli = new Passport_Client('passport.demo.ly');
+ * 
+ * // 验证
+ * try {
+ *     $result = $cli->auth('yangyi@surveypie.com', 'abc');
+ *     var_dump($result);
+ * } catch (Passport_Client_Exception $ex) {
+ *     var_dump($ex->getResponse());
+ * }
+ * 
+ * // 查询
+ * try {
+ *     $result = $cli->find('yangyi@surveypie.com');
+ *     var_dump($result);
+ * } catch (Passport_Client_Exception $ex) {
+ *     var_dump($ex->getResponse());
+ * }
+ * 
+ * // 创建
+ * try {
+ *     $result = $cli->create('yangyi@surveypie.com', 'abc');
+ *     var_dump($result);
+ * } catch (Passport_Client_Exception $ex) {
+ *     var_dump($ex->getResponse());
+ * }
+ * 
+ * // 修改
+ * try {
+ *     $result = $cli->modify('yangyi@surveypie.com', array('passwd' => 'def'));
+ *     var_dump($result);
+ * } catch (Passport_Client_Exception $ex) {
+ *     var_dump($ex->getResponse());
+ * }
+ */
+
 class Http_Request {
     protected $default_options = array(
         CURLOPT_HEADER => 0,
@@ -109,6 +146,18 @@ class Passport_Client {
         return sprintf('%s/%s', $this->url, $token);
     }
 
+    public function auth($email, $passwd) {
+        $url = $this->url .'/auth';
+        $response = $this->request->post(
+            $url, array('email' => $email, 'passwd' => $passwd)
+        );
+
+        if (!$this->requestSuccess($response))
+            throw new Passport_Client_Exception('Passport auth failed', $response['code'], $response);
+
+        return json_decode($response['body'], true);
+    }
+
     public function find($token) {
         $response = $this->request->get($this->getEntityUrl($token));
 
@@ -154,26 +203,3 @@ class Passport_Client_Exception extends Exception {
         return $this->response;
     }
 }
-
-//$cli = new Passport_Client('passport.demo.ly');
-
-//try {
-//    $result = $cli->find('yangyi@surveypie.com');
-//    var_dump($result);
-//} catch (Passport_Client_Exception $ex) {
-//    var_dump($ex->getResponse());
-//}
-
-//try {
-//    $result = $cli->create('yangyi@surveypie.com', 'abc');
-//    var_dump($result);
-//} catch (Passport_Client_Exception $ex) {
-//    var_dump($ex->getResponse());
-//}
-
-//try {
-//    $result = $cli->modify('yangyi@surveypie.com', array('passwd' => 'def'));
-//    var_dump($result);
-//} catch (Passport_Client_Exception $ex) {
-//    var_dump($ex->getResponse());
-//}
