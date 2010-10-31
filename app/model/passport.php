@@ -18,7 +18,7 @@ class Passport extends DBData {
      * @var uuid
      * @access protected
      * @primary_key true
-     * @allow_null false
+     * @allow_empty false
      */
     protected $sn;
 
@@ -27,7 +27,7 @@ class Passport extends DBData {
      *
      * @var string
      * @access protected
-     * @allow_null false
+     * @allow_empty false
      * @refuse_update true
      */
     protected $email;
@@ -37,7 +37,7 @@ class Passport extends DBData {
      *
      * @var string
      * @access protected
-     * @allow_null false
+     * @allow_empty false
      */
     protected $passwd;
 
