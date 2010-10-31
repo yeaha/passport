@@ -79,4 +79,8 @@ class PassportError extends HttpError {
     static public function not_found($token) {
         return new static("Passport {$token} not found", 404, null, array('token' => $token));
     }
+
+    static public function duplicate_email($email) {
+        return static::conflict(array('email' => $email));
+    }
 }

@@ -18,6 +18,7 @@ class Passport {
     }
 
     protected function getPassport($token) {
+        $token = strtolower($token);
         return is_uuid($token)
              ? \Model\Passport::find($token)
              : \Model\Passport::findByEmail($token);
@@ -32,27 +33,19 @@ class Passport {
 
     public function post($token = null) {
         if (!$email = post('email'))
-            throw HttpError::bad_request(array(
-                'require_param' => 'email',
-            ));
+            throw HttpError::bad_request(array('require_param' => 'email'));
 
         if (!$passwd = post('passwd'))
-            throw HttpError::bad_request(array(
-                'require_param' => 'passwd',
-            ));
+            throw HttpError::bad_request(array('require_param' => 'passwd'));
 
         if ($passport = $this->getPassport($email))
-            throw HttpError::conflict(array(
-                'email' => $email
-            ));
+            throw PassportError::duplicate_email($email);
 
         $passport = new \Model\Passport;
         $passport->setProp(array(
-            'email' => $email,
+            'email' => strtolower($email),
             'passwd' => md5($passwd)
-        ));
-
-        $passport->save();
+        ))->save();
 
         return \Model\Passport::find($passport->sn)->toArray();
     }
