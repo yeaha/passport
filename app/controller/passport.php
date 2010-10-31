@@ -31,14 +31,12 @@ class Passport {
     }
 
     public function post($token = null) {
-        $email = post('email');
-        if (!$email)
+        if (!$email = post('email'))
             throw HttpError::bad_request(array(
                 'require_param' => 'email',
             ));
 
-        $passwd = post('passwd');
-        if (!$email)
+        if (!$passwd = post('passwd'))
             throw HttpError::bad_request(array(
                 'require_param' => 'passwd',
             ));
