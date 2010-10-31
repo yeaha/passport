@@ -1,0 +1,34 @@
+1、把config/passport.sql导入数据库
+2、修改config/_config里面的数据库配置部分
+3、参考config/nginx.conf调整web服务器
+4、客户端sdk在lib/client.php
+5、正式部署时，修改config里的allow_ip，设置允许访问的ip白名单
+
+每个passport只有两个值，email和passwd
+客户端应用的其它个人信息，在客户端应用中自行保存
+
+假设已有一个passport，email是yangyi.cn.gz@gmail.com，编号是7179132c-57ea-4d15-a45c-105be8c61454
+可以有两种方式访问这个passport
+
+  * http://passport.demo.ly/passport/yangyi.cn.gz@gmail.com
+  * http://passport.demo.ly/passport/7179132c-57ea-4d15-a45c-105be8c61454
+
+如果访问一个不存在的passport，比如 http://passport.demo.ly/passport/notexist@example.com，会直接返回一个http 404错误
+如果passport存在，返回json格式的结果
+
+POST http://passport.demo.ly/passport
+生成新的passport
+
+PUT http://passport.demo.ly/passport/yangyi.cn.gz@gmail.com
+修改passport，也可以用来创建新的passport，这是一个幂等操作
+
+详细的CRUD操作，参考lib/client.php内的实现
+
+一次典型的用户登录流程是：
+1、用户访问app登录页面，填写注册email和密码并提交
+2、app服务器端程序根据提交的email，从passport service获得passport数据
+3、如果返回的passport数据里面包含的密码和用户提交的密码一致，则登录成功
+
+TODO:
+  * 对提交和返回的数据加密，或数据签名
+  * 对客户端隐藏密码细节，直接提供效验接口
