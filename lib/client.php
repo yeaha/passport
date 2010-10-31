@@ -1,5 +1,5 @@
 <?php
-class HttpRequest {
+class Http_Request {
     protected $default_options = array(
         CURLOPT_HEADER => 0,
         CURLOPT_RETURNTRANSFER => 1,
@@ -9,7 +9,7 @@ class HttpRequest {
 
     public function __construct(array $default_options) {
         if (!extension_loaded('curl'))
-            throw new RuntimeException('HttpRequest: Require CURL extension!');
+            throw new RuntimeException('Http_Request: Require CURL extension!');
 
         if ($default_options) $this->default_options = $default_options;
     }
@@ -87,13 +87,13 @@ class HttpRequest {
     }
 }
 
-class PassportClient {
+class Passport_Client {
     protected $request;
     protected $url;
 
     public function __construct($host) {
         $this->url = "http://{$host}/passport";
-        $this->request = new HttpRequest(array(
+        $this->request = new Http_Request(array(
             CURLOPT_HEADER => 0,
             CURLOPT_RETURNTRANSFER => 1,
             CURLOPT_HTTPHEADER => array('Accept: application/json')
@@ -113,7 +113,7 @@ class PassportClient {
         $response = $this->request->get($this->getEntityUrl($token));
 
         if (!$this->requestSuccess($response))
-            throw new PassportClientException('Passport not found', $response['code'], $response);
+            throw new Passport_Client_Exception('Passport not found', $response['code'], $response);
 
         return json_decode($response['body'], true);
     }
@@ -125,7 +125,7 @@ class PassportClient {
         );
 
         if (!$this->requestSuccess($response))
-            throw new PassportClientException('Passport create failed', $response['code'], $response);
+            throw new Passport_Client_Exception('Passport create failed', $response['code'], $response);
 
         return json_decode($response['body'], true);
     }
@@ -137,13 +137,13 @@ class PassportClient {
         );
 
         if (!$this->requestSuccess($response))
-            throw new PassportClientException('Passport modify failed', $response['code'], $response);
+            throw new Passport_Client_Exception('Passport modify failed', $response['code'], $response);
 
         return json_decode($response['body'], true);
     }
 }
 
-class PassportClientException extends Exception {
+class Passport_Client_Exception extends Exception {
     protected $response;
     public function __construct($message, $code, $response) {
         $this->response = $response;
@@ -155,18 +155,25 @@ class PassportClientException extends Exception {
     }
 }
 
-//$cli = new PassportClient('passport.demo.ly');
+//$cli = new Passport_Client('passport.demo.ly');
+
+//try {
+//    $result = $cli->find('yangyi@surveypie.com');
+//    var_dump($result);
+//} catch (Passport_Client_Exception $ex) {
+//    var_dump($ex->getResponse());
+//}
 
 //try {
 //    $result = $cli->create('yangyi@surveypie.com', 'abc');
 //    var_dump($result);
-//} catch (PassportClientException $ex) {
+//} catch (Passport_Client_Exception $ex) {
 //    var_dump($ex->getResponse());
 //}
 
 //try {
 //    $result = $cli->modify('yangyi@surveypie.com', array('passwd' => 'def'));
 //    var_dump($result);
-//} catch (PassportClientException $ex) {
+//} catch (Passport_Client_Exception $ex) {
 //    var_dump($ex->getResponse());
 //}
