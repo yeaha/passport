@@ -16,6 +16,10 @@ return array(
                 'user' => 'dev',
                 'pass' => 'abc',
             ),
+            'cache.orm.meta' => array(
+                'class' => 'Lysine\Storage\Cache\Memcached',
+                'life_time' => 3600,
+            ),
         ),
     ),
     'allow_ip' => '*',  // array('192.168.1.100', '192.168.1.200'),

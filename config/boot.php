@@ -5,6 +5,7 @@ use Lysine\HttpError;
 
 require_once ROOT_DIR .'/lib/lysine.phar';
 Lysine\Config::import(require_once ROOT_DIR .'/config/_config.php');
+Lysine\ORM\DataMapper\Meta::setCache('cache.orm.meta');
 
 require_once ROOT_DIR .'/lib/functions.php';
 set_exception_handler('__on_exception');
