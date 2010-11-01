@@ -2,7 +2,7 @@
 return array(
     'app' => array(
         'router' => array(
-            'map' => array(
+            'rewrite' => array(
                 '#^/passport/auth/?#' => '\Controller\Passport\Auth',
                 '#^/passport/(.+)#' => '\Controller\Passport',
             ),
