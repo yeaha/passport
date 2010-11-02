@@ -192,6 +192,12 @@ class Passport_Client {
     }
 }
 
+// exception code:
+// 400 请求的参数不正确
+// 404 passport不存在
+// 406 ip禁止访问
+// 409 email已经存在（注册冲突）
+// 500 服务器内部错误
 class Passport_Client_Exception extends Exception {
     protected $response;
     public function __construct($message, $code, $response) {
