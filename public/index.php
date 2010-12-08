@@ -1,3 +1,10 @@
 <?php
 require_once __DIR__ .'/../config/boot.php';
-echo app()->run();
+$resp = app()->run();
+
+$profiler = Lysine\Utils\Profiler::instance();
+$profiler->end(true);
+
+$resp->setHeader('X-Runtime: '. round($profiler->getRuntime('__MAIN__') ?: 0, 6))
+     ->sendHeader();
+echo $resp;

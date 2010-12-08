@@ -5,7 +5,7 @@ use Model\Passport;
 use Model\PassportError;
 
 class Auth {
-    public function afterRun(&$response) {
+    public function __after_run(&$response) {
         if (isset($response['passwd'])) unset($response['passwd']);
 
         if (in_array('application/json', req()->acceptTypes())) {

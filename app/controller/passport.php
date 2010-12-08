@@ -5,7 +5,7 @@ use Model\PassportError;
 use Lysine\HttpError;
 
 class Passport {
-    public function afterRun(&$response) {
+    public function __after_run(&$response) {
         if (isset($response['passwd'])) unset($response['passwd']);
 
         if (in_array('application/json', req()->acceptTypes())) {
@@ -22,14 +22,15 @@ class Passport {
              : \Model\Passport::findByEmail($token);
     }
 
-    public function get($token) {
+    public function GET($token) {
         $passport = $this->getPassport($token);
         if (!$passport)
             throw PassportError::not_found($token);
+
         return $passport->toArray();
     }
 
-    public function post($token = null) {
+    public function POST($token = null) {
         if (!$email = post('email'))
             throw HttpError::bad_request(array('require_param' => 'email'));
 
@@ -48,16 +49,16 @@ class Passport {
         return \Model\Passport::find($passport->sn)->toArray();
     }
 
-    public function put($token) {
+    public function PUT($token) {
         if (!$passport = $this->getPassport($token)) {
             $passport = new \Model\Passport;
             $prop = is_uuid($token) ? 'sn' : 'email';
             $passport->setProp($prop, strtolower($token));
         }
 
-        if ($post = post()) {
-            if (isset($post['passwd'])) $post['passwd'] = md5($post['passwd']);
-            $passport->setProp($post)->save();
+        if ($put = put()) {
+            if (isset($put['passwd'])) $put['passwd'] = md5($put['passwd']);
+            $passport->setProp($put)->save();
         }
 
         return $passport->toArray();
