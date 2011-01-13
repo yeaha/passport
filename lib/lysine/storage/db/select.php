@@ -94,14 +94,6 @@ class Select {
     protected $offset;
 
     /**
-     * sql UNION
-     *
-     * @var mixed
-     * @access protected
-     */
-    protected $union;
-
-    /**
      * 返回数组中作为key的字段
      *
      * @var string
@@ -139,13 +131,12 @@ class Select {
      * 构造函数
      *
      * @param IAdapter $adapter
-     * @param boolean $return_set
      * @access public
      * @return void
      */
-    public function __construct(IAdapter $adapter, $return_set = true) {
+    public function __construct(IAdapter $adapter) {
         $this->adapter = $adapter;
-        $this->return_set = $return_set;
+        $this->return_set = self::$returnSet;
     }
 
     /**
@@ -199,7 +190,7 @@ class Select {
     public function reset() {
         $this->cols = $this->where = array();
         $this->group = $this->having = $this->order = null;
-        $this->limit = $this->offset = $this->union = null;
+        $this->limit = $this->offset = null;
         $this->key_column = $this->processor = null;
         $this->where_relation = 'AND';
 
@@ -452,37 +443,6 @@ class Select {
     }
 
     /**
-     * sql UNION
-     *
-     * <code>
-     * // select * from table1 where id = 1
-     * $select1 = $adapter->select('table1')->where('id = ?', 1);
-     * $select2 = $adapter->select('table1')->where('id = ?', 2);
-     *
-     * // select * from table1 where id = 1
-     * // union all
-     * // select * from table1 where id = 2
-     * $select1->union($select2);
-     * </code>
-     *
-     * @param mixed $relation
-     * @param boolean $all
-     * @access public
-     * @return Lysine\Storage\DB\Select
-     */
-    public function union($relation, $all = true) {
-        $relation_bind = array();
-        if ($relation instanceof Select) {
-            list($relation, $relation_bind) = $relation->compile();
-        } elseif (is_array($relation)) {
-            list($relation, $relation_bind) = call_user_func_array(array($this->adapter, 'parsePlaceHolder'), $relation);
-        }
-
-        $this->union = array(array($relation, $relation_bind), $all);
-        return $this;
-    }
-
-    /**
      * count()查询
      *
      * @access public
@@ -529,16 +489,18 @@ class Select {
      * @access public
      * @return array
      */
-    public function getPageInfo($size, $current_page, $total = null) {
+    public function getPageInfo($current_page, $size, $total = null) {
         if (!$total) {
             $old_offset = $this->offset;
             $old_limit = $this->limit;
-            $this->offset = $this->limit = null;
+            $old_order = $this->order;
+            $this->offset = $this->limit = $this->order = null;
 
             $total = $this->count();
 
             $this->offset = $old_offset;
             $this->limit = $old_limit;
+            $this->order = $old_order;
         }
         return cal_page($total, $size, $current_page);
     }
@@ -591,16 +553,6 @@ class Select {
         if ($this->limit) $sql .= ' LIMIT '. $this->limit;
         if ($this->offset) $sql .= ' OFFSET '. $this->offset;
 
-        if ($this->union) {
-            list($relation, $all) = $this->union;
-            // 某些数据库可能不支持union all语法
-            $sql .= $all ? ' UNION ALL ' : ' UNION ';
-
-            list($relation, $relation_bind) = $relation;
-            $sql .= $relation;
-            if ($relation_bind) $bind = array_merge($bind, $relation_bind);
-        }
-
         return array($sql, $bind);
     }
 
@@ -641,6 +593,28 @@ class Select {
     }
 
     /**
+     * 以原生数组返回数据
+     *
+     * @access public
+     * @return Select
+     */
+    public function asArray() {
+        $this->return_set = false;
+        return $this;
+    }
+
+    /**
+     * 以Lysine\Utils\Set类型返回数据
+     *
+     * @access public
+     * @return Select
+     */
+    public function asSet() {
+        $this->return_set = true;
+        return $this;
+    }
+
+    /**
      * 返回查询数据
      *
      * @param integer $limit
@@ -660,7 +634,7 @@ class Select {
         } else {
             $result = $sth->getAll($this->key_column);
             if ($processor) $result = array_map($processor, $result);
-            if (self::$returnSet && $this->return_set) $result = new Set($result);
+            if ($this->return_set) $result = new Set($result);
             return $result;
         }
     }

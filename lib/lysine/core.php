@@ -1,10 +1,10 @@
 <?php
 namespace Lysine {
-    defined('DEBUG') or define('DEBUG', true);
-
     use Lysine\ORM;
     use Lysine\MVC\Response;
     use Lysine\HttpError;
+
+    defined('DEBUG') or define('DEBUG', false);
 
     class Config {
         static protected $config = array();
@@ -264,36 +264,59 @@ namespace Lysine {
         return class_exists($class, false) || interface_exists($class, false);
     }
 
+    function logger($domain = null) {
+        $name = '__LYSINE__';
+        if ($domain) $name .= '.'. strtoupper($domain);
+        return \Lysine\Utils\Logging::getLogger($name);
+    }
+
     spl_autoload_register('Lysine\autoload');
     require __DIR__ .'/functions.php';
 
-    function __on_exception($exception) {
-        for ($i = 0, $ii = count(ob_list_handlers()); $i < $ii; $i++) ob_end_clean();
+    function __on_exception($exception, $send_header = true) {
+        if (DEBUG) {
+            try {
+                \Lysine\logger()->exception($exception, 8);
+            } catch (\Exception $ex) {
+            }
+        }
 
         $code = $exception instanceof HttpError
               ? $exception->getCode()
               : 500;
 
-        header( Response::httpStatus($code) ?: Response::httpStatus(500) );
+        $header = array(
+            Response::httpStatus($code) ?: Response::httpStatus(500),
+        );
 
         if (DEBUG) {
-            $message = $exception->getMessage();
+            $message = strip_tags($exception->getMessage());
             if (strpos($message, "\n") !== false) {
                 $lines = explode("\n", $message);
                 $message = $lines[0];
             }
-
-            header('X-Exception-Message: '. $message);
-            header('X-Exception-Code: '. $exception->getCode());
+            $header[] = 'X-Exception-Message: '. $message;
+            $header[] = 'X-Exception-Code: '. $exception->getCode();
 
             foreach (explode("\n", $exception->getTraceAsString()) as $index => $line)
-                header(sprintf('X-Exception-Trace-%d: %s', $index, $line));
+                $header[] = sprintf('X-Exception-Trace-%d: %s', $index, $line);
         }
 
-        return $code;
-    }
+        if ($send_header && !headers_sent())
+            foreach ($header as $h) header($h);
 
-    set_exception_handler('\Lysine\__on_exception');
+        return array($code, $header);
+    }
+    if (!defined('LYSINE_NO_EXCEPTION_HANDLER'))
+        set_exception_handler('\Lysine\__on_exception');
+
+    function __on_error($code, $message, $file = null, $line = null) {
+        if (error_reporting() && $code)
+            throw new \ErrorException($message, $code, 0, $file, $line);
+        return true;
+    }
+    if (!defined('LYSINE_NO_ERROR_HANDLER'))
+        set_error_handler('\Lysine\__on_error');
 }
 
 namespace Lysine\MVC {

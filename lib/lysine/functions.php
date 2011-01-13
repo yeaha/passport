@@ -3,6 +3,7 @@ use Lysine\MVC;
 use Lysine\Storage\DB\Adapter\Pgsql;
 use Lysine\Storage\DB\Expr;
 use Lysine\Utils\Events;
+use Lysine\Utils\Logging;
 
 if (!function_exists('app')) {
     function app() {
@@ -47,17 +48,17 @@ function set_cookie($name, $value, $expire = 0, $path = '/', $domain = null, $se
     return resp()->setCookie($name, $value, $expire, $path, $domain, $secure, $httponly);
 }
 
-function get($key = null, $default = false) {
+function get($key = null, $default = null) {
     if ($key === null) return $_GET;
     return isset($_GET[$key]) ? $_GET[$key] : $default;
 }
 
-function post($key = null, $default = false) {
+function post($key = null, $default = null) {
     if ($key === null) return $_POST;
     return isset($_POST[$key]) ? $_POST[$key] : $default;
 }
 
-function put($key = null, $default = false) {
+function put($key = null, $default = null) {
     static $_PUT = null;
 
     if ($_PUT === null) {
@@ -76,7 +77,7 @@ function put($key = null, $default = false) {
     return isset($_PUT[$key]) ? $_PUT[$key] : $default;
 }
 
-function request($key = null, $default = false) {
+function request($key = null, $default = null) {
     if ($key === null) return array_merge(put(), $_REQUEST);
     return isset($_REQUEST[$key]) ? $_REQUEST[$key] : put($key, $default);
 }
@@ -101,6 +102,10 @@ function session() {
 function cookie() {
     if (!isset($_COOKIE)) return false;
     return array_get($_COOKIE, func_get_args());
+}
+
+function logger($name) {
+    return Logging::getLogger($name);
 }
 
 function storage($name = null) {
@@ -225,8 +230,8 @@ function listen_event($obj, $event, $callback) {
 }
 
 // 订阅类事件
-function subscribe_event($class, $callback) {
-    return Events::instance()->subscribe($class, $callback);
+function subscribe_event($class, $event, $callback) {
+    return Events::instance()->subscribe($class, $event, $callback);
 }
 
 // 取消监听事件
@@ -248,6 +253,12 @@ function in_namespace($class, $namespace) {
     $class = ltrim($class, '\\');
     $namespace = trim($namespace, '\\') . '\\';
     return start_with($class, $namespace, true);
+}
+
+// 是关联数组还是普通数组
+function is_assoc_array($array) {
+    $keys = array_keys($array);
+    return array_keys($keys) !== $keys;
 }
 
 // 计算分页 calculate page

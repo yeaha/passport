@@ -173,6 +173,7 @@ class View {
      */
     public function render($file, array $vars = null) {
         $file = $this->findFile($file);
+        if (DEBUG) \Lysine\logger('mvc')->info('Render view file '. $file);
 
         if ($vars) {
             foreach ($vars as $key => $val)
@@ -180,12 +181,15 @@ class View {
         }
 
         ob_start();
-
         if ($this->vars) extract($this->vars);
-        require $file;
+        try {
+            require $file;
+        } catch (\Exception $ex) {
+            ob_get_level() and ob_clean();
+            throw $ex;
+        }
         // 安全措施，关闭掉忘记关闭的block
         $this->endBlock($all = true);
-
         $output = ob_get_clean();
 
         // 如果没有继承其它视图，就直接输出结果
@@ -200,17 +204,16 @@ class View {
      *
      * @param string $file
      * @param array $vars
-     * @param boolean $once 只包含一次
      * @access protected
      * @return void
      */
-    protected function includes($file, array $vars = null, $once = false) {
+    protected function includes($file, array $vars = null) {
         $file = $this->findFile($file);
 
         $vars = $vars ? array_merge($this->vars, $vars) : $this->vars;
         if ($vars) extract($vars);
 
-        return $once ? require_once($file) : require($file);
+        require $file;
     }
 
     /**

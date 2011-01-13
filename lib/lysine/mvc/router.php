@@ -171,8 +171,10 @@ class Router extends Router_Abstract {
      */
     protected function match($url) {
         foreach ($this->dispatch_rewrite as $re => $class) {
-            if (preg_match($re, $url, $match))
+            if (preg_match($re, $url, $match)) {
+                if (DEBUG) \Lysine\logger('mvc')->debug('Found url rewrite rule: '. $re);
                 return array($class, array_slice($match, 1));
+            }
         }
 
         // url: /user/login
@@ -194,8 +196,14 @@ class Router extends Router_Abstract {
      * @return mixed
      */
     public function dispatch($url, array $params = array()) {
+        if (DEBUG) $logger = \Lysine\logger('mvc');
+
         $url = strtolower(rtrim($url, '/'));
+        if (DEBUG) $logger->debug('Dispatch url:'. $url);
+
         list($class, $args) = $this->match($url);
+        if (DEBUG) $logger->debug('Match url controller as '. $class);
+
         if (!$class || !class_exists($class)) throw HttpError::page_not_found($url, array('controller' => $class));
 
         if ($params) $args = array_merge($args, $params);
@@ -206,8 +214,8 @@ class Router extends Router_Abstract {
             // 如果__before_run返回了内容，就直接完成动作
             // 可以在这里进行某些阻断操作
             // 正常的内容不应该通过这里输出
-            $resp = call_user_func_array(array($controller, '__before_run'), $args);
-            if ($resp) return $resp;
+            if ($resp = call_user_func_array(array($controller, '__before_run'), $args))
+                return ($resp instanceof Response) ? $resp : resp()->setBody($resp);
         }
 
         $request = req();
@@ -228,6 +236,11 @@ class Router extends Router_Abstract {
                 $method = 'flash';
             }
         }
+        if (DEBUG) {
+            $log = 'Call controller ['. $class .'] method ['. $method .']';
+            if ($args) $log .= ' with '. json_encode($args);
+            $logger->info($log);
+        }
 
         // 执行controller动作并返回结果
         // 不检查method是否存在，用is_callable()
@@ -244,7 +257,6 @@ class Router extends Router_Abstract {
 
         fire_event($this, AFTER_DISPATCH_EVENT, array($url, $class, $args, $resp));
 
-        if ($resp instanceof Response) return $resp;
-        return resp()->setBody($resp);
+        return ($resp instanceof Response) ? $resp : resp()->setBody($resp);
     }
 }

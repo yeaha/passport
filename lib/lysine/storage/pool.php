@@ -20,7 +20,7 @@ class Pool extends Singleton {
     /**
      * 存储服务配置路径
      */
-    static public $config_path = array('storage', 'pool');
+    static public $config_path = array('storages');
 
     /**
      * 默认存储器名字
@@ -44,6 +44,28 @@ class Pool extends Singleton {
     private $dispatcher = array();
 
     /**
+     * 获得指定名字的存储服务配置信息
+     *
+     * @param string $name
+     * @access public
+     * @return array
+     */
+    public function getConfig($name) {
+        $path = self::$config_path;
+        $path[] = $name;
+        $config = Config::get($path);
+
+        if (!$config)
+            throw StorageError::undefined_storage($name);
+
+        if (isset($config['__IMPORT__'])) {
+            $config = array_merge($this->getConfig($config['__IMPORT__']), $config);
+            unset($config['__IMPORT__']);
+        }
+        return $config;
+    }
+
+    /**
      * 自定义路由方法
      * 路由方法调用后必须返回storage名称
      *
@@ -57,9 +79,7 @@ class Pool extends Singleton {
             throw StorageError::not_callable("Storage dispatcher ${name}");
 
         // 检查是否已经有这个名字的storage
-        $path = self::$config_path;
-        $path[] = $name;
-        if ($config = Config::get($path))
+        if ($config = $this->getConfig($name))
             throw new StorageError('Storage ['. $name .'] is exist, can not replace with dispatcher');
 
         $this->dispatcher[$name] = $fn;
@@ -87,12 +107,7 @@ class Pool extends Singleton {
 
         if (isset($this->storages[$name])) return $this->storages[$name];
 
-        $path = self::$config_path;
-        $path[] = $name;
-        $config = Config::get($path);
-
-        if (!$config)
-            throw StorageError::undefined_storage($name);
+        $config = $this->getConfig($name);
 
         fire_event($this, self::BEFORE_CREATE_INSTANCE_EVENT, array($name, $config));
 

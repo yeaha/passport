@@ -5,7 +5,7 @@ use Lysine\Error;
 use Lysine\Utils\Singleton;
 
 /**
- * 对象事件机制封装
+ * 事件机制封装
  *
  * @uses Singleton
  * @package Utils
@@ -42,103 +42,93 @@ class Events extends Singleton {
     }
 
     /**
-     * 监听对象某个事件
+     * 监听某个事件
      *
-     * @param object $obj
+     * @param mixed $source
      * @param string $event
      * @param callback $callback
      * @access public
      * @return void
      */
-    public function listen($obj, $event, $callback) {
+    public function listen($source, $event, $callback) {
         if (!is_callable($callback))
             throw Error::not_callable('Events::listen() parameter 3');
 
-        $key = $this->keyOf($obj);
-        $this->listen[$key][$event][] = $callback;
+        $source = is_object($source) ? $this->keyOf($source) : strtolower($source);
+        $this->listen[$source][$event][] = $callback;
     }
 
     /**
-     * 订阅类的某个或者所有事件
+     * 订阅类的事件
      *
-     * [code]
-     * // 订阅Topic类的所有事件
-     * $event->subscribe('Topic', $callback);
-     * // 订阅Topic类的delete事件
-     * $event->subscribe(array('Topic', 'delete'), $callback);
-     * [/code]
-     *
-     * @param mixed $class
+     * @param string $class
+     * @param string $event
      * @param callback $callback
      * @access public
      * @return void
      */
-    public function subscribe($class, $callback) {
+    public function subscribe($class, $event, $callback) {
         if (!is_callable($callback))
-            throw Error::not_callable('Events::subscribe() parameter 2');
+            throw Error::not_callable('Events::subscribe() parameter 3');
 
-        $event = '*';
-        if (is_array($class))
-            list($class, $event) = $class;
-
-        $class = ltrim($class, '\\');
-
+        $class = strtolower(ltrim($class, '\\'));
         $this->subscribe[$class][$event][] = $callback;
     }
 
     /**
-     * 触发对象事件
+     * 触发事件
      *
-     * @param object $obj
+     * @param mixed $source
      * @param string $event
      * @param array $args
      * @access public
      * @return integer 事件回调次数
      */
-    public function fire($obj, $event, array $args = array()) {
-        $key = $this->keyOf($obj);
+    public function fire($source, $event, array $args = array()) {
         $fire = 0;  // 回调次数
+        if (!$this->listen && !$this->subscribe) return $fire;
 
+        $key = is_object($source) ? $this->keyOf($source) : strtolower($source);
         if (isset($this->listen[$key][$event])) {
-            foreach ($this->listen[$key][$event] as $callback)
+            foreach ($this->listen[$key][$event] as $callback) {
                 call_user_func_array($callback, $args);
-            $fire += count($this->listen[$key][$event]);
+                $fire++;
+            }
         }
 
-        // 订阅回调参数
-        // 第一个参数是事件发起对象
-        // 第二个参数是事件类型
-        // 第三个参数是事件参数
-        $args = array($obj, $event, $args);
+        // 订阅事件仅适用于对象
+        if (!$this->subscribe || !is_object($source)) return $fire;
 
-        $class = get_class($obj);
-        if (isset($this->subscribe[$class][$event]) || isset($this->subscribe[$class]['*'])) {
-            foreach ($this->subscribe[$class] as $sevent => $callback_set) {
-                if ($sevent != '*' && $sevent != $event) continue;
-                foreach ($callback_set as $callback)
-                    call_user_func_array($callback, $args);
-                $fire += count($callback_set);
-            }
+        $class = strtolower(get_class($source));
+        if (!isset($this->subscribe[$class][$event])) return $fire;
+
+        // 订阅回调参数
+        // 第一个参数是事件对象
+        // 第二个参数是事件参数
+        $args = array($source, $args);
+        foreach ($this->subscribe[$class][$event] as $callback) {
+            call_user_func_array($callback, $args);
+            $fire++;
         }
 
         return $fire;
     }
 
     /**
-     * 取消对象事件监听
+     * 取消事件监听
      *
-     * @param object $obj
+     * @param mixed $source
      * @param string $event
      * @access public
      * @return void
      */
-    public function clear($obj, $event = null) {
-        $key = $this->keyOf($obj);
+    public function clear($source, $event = null) {
+        $source = is_object($source) ? $this->keyOf($source) : strtolower($source);
 
-        if ($event) {
-            unset($this->listen[$key][$event]);
+        if ($event === null) {
+            unset($this->listen[$source]);
         } else {
-            unset($this->listen[$key]);
+            unset($this->listen[$source][$event]);
         }
     }
 }

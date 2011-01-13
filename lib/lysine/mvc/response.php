@@ -70,7 +70,7 @@ class Response extends Singleton {
     }
 
     public function setCode($code) {
-        $this->code = $code;
+        $this->code = (int)$code;
         return $this;
     }
 
@@ -135,6 +135,7 @@ class Response extends Singleton {
     public function __toString() {
         // head方法不需要向客户端返回结果
         if (req()->isHEAD()) return '';
+        if (in_array($this->code, array(204, 301, 302, 303, 304))) return '';
 
         return (string)$this->body;
     }

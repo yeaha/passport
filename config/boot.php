@@ -1,11 +1,10 @@
 <?php
-use Lysine\Error;
-use Lysine\HttpError;
-
 define('ROOT_DIR', realpath(__DIR__ .'/../'));
-define('DEBUG', false);
 
 require_once ROOT_DIR .'/lib/lysine/core.php';
+
+use Lysine\Error;
+use Lysine\HttpError;
 
 Lysine\Utils\Profiler::instance()->start('__MAIN__');
 Lysine\Config::import(require_once ROOT_DIR .'/config/_config.php');
@@ -14,21 +13,29 @@ Lysine\ORM\DataMapper\Meta::setCache('cache.orm.meta');
 require_once ROOT_DIR .'/lib/functions.php';
 
 set_exception_handler(function($exception) {
-    $code = \Lysine\__on_exception($exception);
-    if (in_array('application/json', req()->acceptTypes())) {
-        echo json_encode($exception->toArray());
+    global $argc;
+
+    if (isset($argc)) {  // run in shell
+        echo $exception;
     } else {
-        require_once ROOT_DIR .'/public/_error/500.php';
+        list($code, $header) = \Lysine\__on_exception($exception);
+
+        if (in_array('application/json', req()->acceptTypes())) {
+            !headers_sent() and header('Content-Type: application/json');
+            $response = $exception instanceof Error
+                      ? $exception->toArray()
+                      : array(
+                            'code' => $exception->getCode(),
+                            'message' => $exception->getMessage(),
+                        );
+            echo json_encode($response);
+        } else {
+            ob_start();
+            require ROOT_DIR .'/public/_error/500.php';
+            echo ob_get_clean();
+        }
     }
-
     die(1);
-});
-
-set_error_handler(function($errno, $errstr, $errfile, $errline, $errcontext) {
-    throw new Error($errstr, $errno, null, array(
-        'file' => $errfile,
-        'line' => $errline,
-    ));
 });
 
 app()->includePath(ROOT_DIR .'/app');
