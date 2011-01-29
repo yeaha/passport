@@ -37,28 +37,28 @@ abstract class Data extends ORM implements IData {
      * 是否新建数据
      *
      * @var boolean
-     * @access protected
+     * @access private
      * @internal true
      */
-    protected $is_fresh = true;
-
-    /**
-     * 被修改过的属性名
-     *
-     * @var array
-     * @access protected
-     * @internal true
-     */
-    protected $dirty_props = array();
+    private $is_fresh = true;
 
     /**
      * 是否只读
      *
      * @var boolean
-     * @access protected
+     * @access private
      * @internal true
      */
-    protected $is_readonly;
+    private $is_readonly;
+
+    /**
+     * 被修改过的属性名
+     *
+     * @var array
+     * @access private
+     * @internal true
+     */
+    private $dirty_props = array();
 
     /**
      * 析构函数
@@ -282,14 +282,16 @@ abstract class Data extends ORM implements IData {
 
     /**
      * 根据主键生成实例
+     * 不使用参数声明，便于具体的Data方法重载此方法
+     * 如果子类的find参数和这里不一致，会抛出E_STRICT错误
      *
-     * @param mixed $key
      * @static
      * @access public
+     * @see \Lysine\ORM\DataMapper\Mapper::find
      * @return void
      */
-    static public function find($key) {
-        return static::getMapper()->find($key);
+    static public function find(/* $id */) {
+        return call_user_func_array(array(static::getMapper(), 'find'), func_get_args());
     }
 
     /**
