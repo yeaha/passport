@@ -9,54 +9,16 @@ use Lysine\ORM\DataMapper\DBData;
  *
  * @uses DBData
  * @author yangyi <yangyi.cn.gz@gmail.com>
- * @collection passport.entity
  */
 class Passport extends DBData {
-    /**
-     * 编号
-     *
-     * @var uuid
-     * @access protected
-     * @primary_key true
-     * @allow_empty false
-     */
-    protected $sn;
-
-    /**
-     * Email
-     *
-     * @var string
-     * @access protected
-     * @allow_empty false
-     * @refuse_update true
-     */
-    protected $email;
-
-    /**
-     * 密码
-     *
-     * @var string
-     * @access protected
-     * @allow_empty false
-     */
-    protected $passwd;
-
-    /**
-     * 注册时间
-     *
-     * @var datetime
-     * @access protected
-     * @refuse_update true
-     */
-    protected $create_time;
-
-    /**
-     * 最后更新时间
-     *
-     * @var datetime
-     * @access protected
-     */
-    protected $update_time;
+    static protected $collection = 'passport.entity';
+    static protected $props_meta = array(
+        'sn' => array('type' => 'uuid', 'primary_key' => true),
+        'email' => array('type' => 'string', 'refuse_update' => true),
+        'passwd' => array('type' => 'string'),
+        'create_time' => array('type' => 'datetime', 'refuse_update' => true),
+        'update_time' => array('type' => 'datetime'),
+    );
 
     protected function __before_save() {
         $props = array(
@@ -69,9 +31,14 @@ class Passport extends DBData {
         $this->setProp($props);
     }
 
+    protected function formatProp($prop, $val, array $prop_meta) {
+        $val = parent::formatProp($prop, $val, $prop_meta);
+        if ($prop == 'email' && $val) return strtolower($val);
+    }
+
     // 根据email查询
     static public function findByEmail($email) {
-        return static::select()->where('email = ?', $email)->get(1);
+        return static::select()->where('email = ?', strtolower($email))->get(1);
     }
 }
 

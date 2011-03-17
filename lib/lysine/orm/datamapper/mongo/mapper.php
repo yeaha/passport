@@ -21,7 +21,7 @@ class MongoMapper extends Mapper {
      * @access protected
      * @return array
      */
-    protected function doFind($id, IStorage $storage = null) {
+    protected function doFind($id, IStorage $storage = null, $collection = null) {
         $meta = $this->getMeta();
         return $this->getStorage()->findOne(
             $meta->getCollection(),
@@ -38,12 +38,13 @@ class MongoMapper extends Mapper {
      * @access protected
      * @return mixed 新主键
      */
-    protected function doInsert(Data $data, IStorage $storage = null) {
+    protected function doInsert(Data $data, IStorage $storage = null, $collection = null) {
         if (!$id = $data->id())
             throw new \LogicException($this->class .': Must set primary key value before save');
 
+        $meta = $this->getMeta();
         $this->getStorage()->insert(
-            $this->getMeta()->getCollection(),
+            $meta->getCollection(),
             $this->propsToRecord($data->toArray()),
             array('safe' => true)
         );
@@ -58,7 +59,7 @@ class MongoMapper extends Mapper {
      * @access protected
      * @return boolean
      */
-    protected function doUpdate(Data $data, IStorage $storage = null) {
+    protected function doUpdate(Data $data, IStorage $storage = null, $collection = null) {
         $meta = $this->getMeta();
         $this->getStorage()->update(
             $meta->getCollection(),
@@ -77,7 +78,7 @@ class MongoMapper extends Mapper {
      * @access protected
      * @return boolean
      */
-    protected function doDelete(Data $data, IStorage $storage = null) {
+    protected function doDelete(Data $data, IStorage $storage = null, $collection = null) {
         $meta = $this->getMeta();
         $this->getStorage()->remove(
             $meta->getCollection(),

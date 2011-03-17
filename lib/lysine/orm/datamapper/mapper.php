@@ -48,7 +48,7 @@ abstract class Mapper {
      * @access protected
      * @return array
      */
-    abstract protected function doFind($id, IStorage $storage = null);
+    abstract protected function doFind($id, IStorage $storage = null, $collection = null);
 
     /**
      * 保存数据到存储服务
@@ -59,7 +59,7 @@ abstract class Mapper {
      * @access protected
      * @return mixed 新数据的主键值
      */
-    abstract protected function doInsert(Data $data, IStorage $storage = null);
+    abstract protected function doInsert(Data $data, IStorage $storage = null, $collection = null);
 
     /**
      * 保存更新数据到存储服务
@@ -70,7 +70,7 @@ abstract class Mapper {
      * @access protected
      * @return boolean
      */
-    abstract protected function doUpdate(Data $data, IStorage $storage = null);
+    abstract protected function doUpdate(Data $data, IStorage $storage = null, $collection = null);
 
     /**
      * 删除指定主键的数据
@@ -81,7 +81,7 @@ abstract class Mapper {
      * @access protected
      * @return boolean
      */
-    abstract protected function doDelete(Data $data, IStorage $storage = null);
+    abstract protected function doDelete(Data $data, IStorage $storage = null, $collection = null);
 
     /**
      * 构造函数
@@ -111,14 +111,10 @@ abstract class Mapper {
      * @access public
      * @return Lysine\IStorage
      */
-    public function getStorage($args = null) {
-        if ($args === null) {
-            $args = array();
-        } else {
-            $args = is_array($args) ? $args : func_get_args();
-        }
-        array_unshift($args, $this->getMeta()->getStorage());
-        return call_user_func_array(array(Pool::instance(), 'get'), $args);
+    public function getStorage() {
+        return Pool::instance()->get(
+            $this->getMeta()->getStorage()
+        );
     }
 
     /**
@@ -129,12 +125,11 @@ abstract class Mapper {
      * @return array
      */
     public function recordToProps(array $record) {
-        $prop_of_field = $this->getMeta()->getPropOfField();
-        foreach ($record as $field => $value) {
-            if (!isset($prop_of_field[$field])) continue;
-            $props[$prop_of_field[$field]] = $value;
+        $props = array();
+        foreach ($this->getMeta()->getPropOfField() as $field => $prop) {
+            if (isset($record[$field]))
+                $props[$prop] = $record[$field];
         }
-
         return $props;
     }
 
@@ -147,7 +142,6 @@ abstract class Mapper {
      */
     public function propsToRecord(array $props) {
         $field_of_prop = $this->getMeta()->getFieldOfProp();
-
         $record = array();
         foreach ($props as $prop => $val) {
             $field = $field_of_prop[$prop];
@@ -185,23 +179,32 @@ abstract class Mapper {
         if ($data->isReadonly())
             throw OrmError::readonly($data);
 
+        if (!($is_fresh = $data->isFresh()) && !($is_dirty = $data->isDirty()))
+            return true;
+
         $data->fireEvent(ORM::BEFORE_SAVE_EVENT);
+        if ($is_fresh) {
+            $data->fireEvent(ORM::BEFORE_INSERT_EVENT, $data);
+        } elseif ($is_dirty) {
+            $data->fireEvent(ORM::BEFORE_UPDATE_EVENT, $data);
+        }
 
         $props = $data->toArray();
         foreach ($this->getMeta()->getPropMeta() as $prop => $prop_meta) {
-            if (!$prop_meta['allow_empty'] && empty($props[$prop]))
-                throw OrmError::not_allow_empty($data, $prop);
+            if (!$prop_meta['allow_null'] && !isset($props[$prop]))
+                throw OrmError::not_allow_null($data, $prop);
         }
 
-        if ($data->isFresh()) {
-            $data->fireEvent(ORM::BEFORE_INSERT_EVENT, $data);
-            if ($result = $this->insert($data)) $data->fireEvent(ORM::AFTER_INSERT_EVENT);
-        } elseif ($data->isDirty()) {
-            $data->fireEvent(ORM::BEFORE_UPDATE_EVENT, $data);
-            if ($result = $this->update($data)) $data->fireEvent(ORM::AFTER_UPDATE_EVENT);
+        if ($is_fresh) {
+            if ($result = $this->insert($data))
+                $data->fireEvent(ORM::AFTER_INSERT_EVENT);
+        } elseif ($is_dirty) {
+            if ($result = $this->update($data))
+                $data->fireEvent(ORM::AFTER_UPDATE_EVENT);
         }
 
-        $data->fireEvent(ORM::AFTER_SAVE_EVENT);
+        if ($result)
+            $data->fireEvent(ORM::AFTER_SAVE_EVENT);
 
         return $result;
     }
@@ -253,7 +256,7 @@ abstract class Mapper {
      * @access public
      * @return boolean
      */
-    public function delete(Data $data) {
+    public function destroy(Data $data) {
         if ($data->isReadonly())
             throw OrmError::readonly($data);
 
@@ -295,8 +298,6 @@ abstract class Mapper {
      * @return Lysine\ORM\DataMapper\Mapper
      */
     static public function factory($class) {
-        if (is_object($class)) $class = get_class($class);
-
         if (!isset(self::$instance[$class]))
             self::$instance[$class] = new static($class);
         return self::$instance[$class];

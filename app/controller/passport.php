@@ -15,18 +15,23 @@ class Passport {
         }
     }
 
-    protected function getPassport($token) {
-        $token = strtolower($token);
-        return is_uuid($token)
-             ? \Model\Passport::find($token)
-             : \Model\Passport::findByEmail($token);
+    protected function getPassport($token, $auto_create = false) {
+        if (is_uuid($token)) {
+            if ($passport = \Model\Passport::find($token))
+                return $passport;
+            if (!$passport && $auto_create)
+                return new \Model\Passport(array('sn' => $token));
+        } else {
+            if ($passport = \Model\Passport::findByEmail($token))
+                return $passport;
+            if (!$passport && $auto_create)
+                return new \Model\Passport(array('email' => $token));
+        }
     }
 
     public function GET($token) {
-        $passport = $this->getPassport($token);
-        if (!$passport)
+        if (!$passport = $this->getPassport($token))
             throw PassportError::not_found($token);
-
         return $passport->toArray();
     }
 
@@ -42,7 +47,7 @@ class Passport {
 
         $passport = new \Model\Passport;
         $passport->setProp(array(
-            'email' => strtolower($email),
+            'email' => $email,
             'passwd' => md5($passwd)
         ))->save();
 
@@ -50,11 +55,7 @@ class Passport {
     }
 
     public function PUT($token) {
-        if (!$passport = $this->getPassport($token)) {
-            $passport = new \Model\Passport;
-            $prop = is_uuid($token) ? 'sn' : 'email';
-            $passport->setProp($prop, strtolower($token));
-        }
+        $passport = $this->getPassport($token, true);
 
         if ($put = put()) {
             if (isset($put['passwd'])) $put['passwd'] = md5($put['passwd']);

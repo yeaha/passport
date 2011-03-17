@@ -20,11 +20,10 @@ class DBMapper extends Mapper {
      * @access protected
      * @return array
      */
-    protected function doFind($id, IStorage $storage = null) {
-        $adapter = $storage ?: $this->getStorage();
-
+    protected function doFind($id, IStorage $storage = null, $collection = null) {
         $meta = $this->getMeta();
-        $table_name = $adapter->qtab($meta->getCollection());
+        $adapter = $storage ?: $this->getStorage();
+        $table_name = $adapter->qtab($collection ?: $meta->getCollection());
         $primary_key = $adapter->qcol($meta->getPrimaryKey());
 
         return $adapter->execute("SELECT * FROM {$table_name} WHERE {$primary_key} = ?", $id)->getRow();
@@ -38,12 +37,12 @@ class DBMapper extends Mapper {
      * @access protected
      * @return mixed 新主键
      */
-    protected function doInsert(Data $data, IStorage $storage = null) {
+    protected function doInsert(Data $data, IStorage $storage = null, $collection = null) {
         $record = $this->propsToRecord($data->toArray());
-        $adapter = $storage ?: $this->getStorage();
 
         $meta = $this->getMeta();
-        $table_name = $meta->getCollection();
+        $adapter = $storage ?: $this->getStorage();
+        $table_name = $collection ?: $meta->getCollection();
         $primary_key = $meta->getPrimaryKey();
 
         if (!$adapter->insert($table_name, $record)) return false;
@@ -60,13 +59,16 @@ class DBMapper extends Mapper {
      * @access protected
      * @return integer affected row count
      */
-    protected function doUpdate(Data $data, IStorage $storage = null) {
-        $record = $this->propsToRecord($data->toArray());
-        $adapter = $storage ?: $this->getStorage();
+    protected function doUpdate(Data $data, IStorage $storage = null, $collection = null) {
+        $record = $this->propsToRecord($data->toArray($only_dirty = true));
 
         $meta = $this->getMeta();
-        $table_name = $meta->getCollection();
-        $primary_key = $adapter->qcol($meta->getPrimaryKey());
+        $adapter = $storage ?: $this->getStorage();
+        $table_name = $collection ?: $meta->getCollection();
+
+        $primary_key = $meta->getPrimaryKey();
+        unset($record[$primary_key]);
+        $primary_key = $adapter->qcol($primary_key);
 
         return $adapter->update($table_name, $record, "{$primary_key} = ?", $data->id());
     }
@@ -79,11 +81,10 @@ class DBMapper extends Mapper {
      * @access public
      * @return integer affected row count
      */
-    protected function doDelete(Data $data, IStorage $storage = null) {
-        $adapter = $storage ?: $this->getStorage();
-
+    protected function doDelete(Data $data, IStorage $storage = null, $collection = null) {
         $meta = $this->getMeta();
-        $table_name = $meta->getCollection();
+        $adapter = $storage ?: $this->getStorage();
+        $table_name = $collection ?: $meta->getCollection();
         $primary_key = $adapter->qcol($meta->getPrimaryKey());
 
         return $adapter->delete($table_name, "{$primary_key} = ?", $data->id());
@@ -96,7 +97,7 @@ class DBMapper extends Mapper {
      * @access public
      * @return Lysine\Storage\DB\Select
      */
-    public function select(IStorage $storage = null) {
+    public function select(IStorage $storage = null, $collection = null) {
         $mapper = $this;
         $processor = function($row) use ($mapper) {
             return $row ? $mapper->package($row) : false;
@@ -104,7 +105,7 @@ class DBMapper extends Mapper {
 
         $meta = $this->getMeta();
         $adapter = $storage ?: $this->getStorage();
-        $select = $adapter->select($meta->getCollection())
+        $select = $adapter->select($collection ?: $meta->getCollection())
                           ->setKeyColumn($meta->getPrimaryKey())
                           ->setProcessor($processor);
         return $select;

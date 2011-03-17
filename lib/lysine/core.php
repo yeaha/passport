@@ -67,8 +67,11 @@ namespace Lysine {
             return $result;
         }
 
-        public function getMore() {
-            return $this->more;
+        public function getMore($with_previous = false) {
+            $more = $this->more;
+            if ($with_previous && ($previous = $this->getPrevious()) && $previous instanceof Error)
+                $more['__previous__'] = $previous->getMore();
+            return $more;
         }
 
         static public function invalid_argument($function, $class = null) {
@@ -192,9 +195,9 @@ namespace Lysine {
             return new static("{$class} is readonly");
         }
 
-        static public function not_allow_empty($class, $prop) {
+        static public function not_allow_null($class, $prop) {
             if ($class instanceof ORM) $class = get_class($class);
-            return new static("{$class}: Property {$prop} not allow empty");
+            return new static("{$class}: Property {$prop} not allow null");
         }
 
         static public function refuse_update($class, $prop) {
@@ -265,7 +268,8 @@ namespace Lysine {
     spl_autoload_register('Lysine\autoload');
     require __DIR__ .'/functions.php';
 
-    function __on_exception($exception, $send_header = true) {
+    // $terminate = true 处理完后直接结束
+    function __on_exception($exception, $terminate = true) {
         if (DEBUG) {
             try {
                 \Lysine\logger()->exception($exception, 8);
@@ -276,6 +280,12 @@ namespace Lysine {
         $code = $exception instanceof HttpError
               ? $exception->getCode()
               : 500;
+
+        if (PHP_SAPI == 'cli') {
+            if (!$terminate) return array($code, array());
+            echo $exception;
+            die(1);
+        }
 
         $header = array(
             Response::httpStatus($code) ?: Response::httpStatus(500),
@@ -294,7 +304,7 @@ namespace Lysine {
                 $header[] = sprintf('X-Exception-Trace-%d: %s', $index, $line);
         }
 
-        if (PHP_SAPI != 'cli' && $send_header && !headers_sent())
+        if ($terminate && !headers_sent())
             foreach ($header as $h) header($h);
 
         return array($code, $header);

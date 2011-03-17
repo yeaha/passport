@@ -8,32 +8,29 @@ use Lysine\HttpError;
 
 Lysine\Utils\Profiler::instance()->start('__MAIN__');
 Lysine\Config::import(require_once ROOT_DIR .'/config/_config.php');
-Lysine\ORM\DataMapper\Meta::setCache('cache.orm.meta');
 
 require_once ROOT_DIR .'/lib/functions.php';
 
 set_exception_handler(function($exception) {
-    global $argc;
+    if (PHP_SAPI == 'cli') die( (string)$exception );  // run in shell
 
-    if (isset($argc)) {  // run in shell
-        echo $exception;
+    list($code, $header) = \Lysine\__on_exception($exception, $terminate = false);
+
+    if (!headers_sent())
+        foreach ($header as $h) header($h);
+
+    if (in_array('application/json', req()->acceptTypes())) {
+        $response = $exception instanceof Error
+                  ? $exception->toArray()
+                  : array(
+                        'code' => $exception->getCode(),
+                        'message' => $exception->getMessage(),
+                    );
+        echo json_encode($response);
     } else {
-        list($code, $header) = \Lysine\__on_exception($exception);
-
-        if (in_array('application/json', req()->acceptTypes())) {
-            !headers_sent() and header('Content-Type: application/json');
-            $response = $exception instanceof Error
-                      ? $exception->toArray()
-                      : array(
-                            'code' => $exception->getCode(),
-                            'message' => $exception->getMessage(),
-                        );
-            echo json_encode($response);
-        } else {
-            ob_start();
-            require ROOT_DIR .'/public/_error/500.php';
-            echo ob_get_clean();
-        }
+        ob_start();
+        require ROOT_DIR .'/public/_error/500.php';
+        echo ob_get_clean();
     }
     die(1);
 });
