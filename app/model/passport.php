@@ -34,6 +34,7 @@ class Passport extends DBData {
     protected function formatProp($prop, $val, array $prop_meta) {
         $val = parent::formatProp($prop, $val, $prop_meta);
         if ($prop == 'email' && $val) return strtolower($val);
+        return $val;
     }
 
     // 根据email查询
