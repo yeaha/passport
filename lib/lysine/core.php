@@ -1,10 +1,12 @@
 <?php
 namespace Lysine {
     use Lysine\ORM;
+    use Lysine\MVC\Application;
     use Lysine\MVC\Response;
     use Lysine\HttpError;
 
     defined('DEBUG') or define('DEBUG', false);
+    require __DIR__ .'/functions.php';
 
     class Config {
         static protected $config = array();
@@ -104,77 +106,92 @@ namespace Lysine {
 
     class HttpError extends Error {
         public function getHeader() {
-            return Response::httpStatus($this->getCode());
+            $header = array(Response::httpStatus($this->getCode()));
+            if (isset($this->header))
+                $header = array_merge($header, $this->header);
+            return $header;
         }
 
-        static public function bad_request(array $more) {
+        static public function bad_request(array $more = array()) {
             return new static('Bad Request', 400, null, $more);
         }
 
-        static public function unauthorized(array $more) {
+        static public function unauthorized(array $more = array()) {
             return new static('Unauthorized', 401, null, $more);
         }
 
-        static public function forbidden(array $more) {
+        static public function forbidden(array $more = array()) {
             return new static('Forbidden', 403, null, $more);
         }
 
-        static public function page_not_found($url, $more = array()) {
-            $more['url'] = $url;
+        static public function page_not_found(array $more = array()) {
+            if (!isset($more['url']))
+                $more['url'] = req()->requestUri();
             return new static('Page Not Found', 404, null, $more);
         }
 
-        static public function method_not_allowed($method, array $more = array()) {
-            $more['method'] = $method;
+        static public function method_not_allowed(array $more = array()) {
+            if (!isset($more['method']))
+                $more['method'] = req()->method();
+
+            if (isset($more['class'])) {
+                $class_method = get_class_methods($more['class']);
+                $support_method = Application::$support_method;
+
+                if ($allow = array_intersect(array_map('strtoupper', $class_method), $support_method))
+                    $more['header'] = array('Allow: '. implode(', ', $allow));
+            }
+
             return new static('Method Not Allowed', 405, null, $more);
         }
 
-        static public function not_acceptable(array $more) {
+        static public function not_acceptable(array $more = array()) {
             return new static('Not Acceptable', 406, null, $more);
         }
 
-        static public function request_timeout(array $more) {
+        static public function request_timeout(array $more = array()) {
             return new static('Request Time-out', 408, null, $more);
         }
 
-        static public function conflict(array $more) {
+        static public function conflict(array $more = array()) {
             return new static('Conflict', 409, null, $more);
         }
 
-        static public function gone(array $more) {
+        static public function gone(array $more = array()) {
             return new static('Gone', 410, null, $more);
         }
 
-        static public function precondition_failed(array $more) {
+        static public function precondition_failed(array $more = array()) {
             return new static('Precondition Failed', 412, null, $more);
         }
 
-        static public function request_entity_too_large(array $more) {
+        static public function request_entity_too_large(array $more = array()) {
             return new static('Request Entity Too Large', 413, null, $more);
         }
 
-        static public function unsupported_media_type(array $more) {
+        static public function unsupported_media_type(array $more = array()) {
             return new static('Unsupported Media Type', 415, null, $more);
         }
 
-        static public function internal_server_error(array $more) {
+        static public function internal_server_error(array $more = array()) {
             return new static('Internal Server Error', 500, null, $more);
         }
 
-        static public function not_implemented($method, array $more = array()) {
-            $more['method'] = $method;
+        static public function not_implemented(array $more = array()) {
+            if (!isset($more['method']))
+                $more['method'] = req()->method();
             return new static('Not Implemented', 501, null, $more);
         }
 
-        static public function bad_gateway(array $more) {
+        static public function bad_gateway(array $more = array()) {
             return new static('Bad Gateway', 502, null, $more);
         }
 
-        static public function service_unavailable(array $more) {
+        static public function service_unavailable(array $more = array()) {
             return new static('Service Unavailable', 503, null, $more);
         }
 
-        static public function gateway_timeout(array $more) {
+        static public function gateway_timeout(array $more = array()) {
             return new static('Gateway Time-out', 504, null, $more);
         }
     }
@@ -264,17 +281,13 @@ namespace Lysine {
         if ($domain) $name .= '.'. strtoupper($domain);
         return \Lysine\Utils\Logging::getLogger($name);
     }
-
     spl_autoload_register('Lysine\autoload');
-    require __DIR__ .'/functions.php';
 
     // $terminate = true 处理完后直接结束
     function __on_exception($exception, $terminate = true) {
-        if (DEBUG) {
-            try {
-                \Lysine\logger()->exception($exception, 8);
-            } catch (\Exception $ex) {
-            }
+        try {
+            \Lysine\logger()->exception($exception, 8);
+        } catch (\Exception $ex) {
         }
 
         $code = $exception instanceof HttpError
@@ -287,9 +300,9 @@ namespace Lysine {
             die(1);
         }
 
-        $header = array(
-            Response::httpStatus($code) ?: Response::httpStatus(500),
-        );
+        $header = $exception instanceof HttpError
+                ? $exception->getHeader()
+                : array(Response::httpStatus(500));
 
         if (DEBUG) {
             $message = strip_tags($exception->getMessage());

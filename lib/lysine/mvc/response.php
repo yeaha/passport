@@ -74,14 +74,21 @@ class Response extends Singleton {
         return $this;
     }
 
-    public function setCookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
+    public function setCookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = true) {
         $this->cookie[$name] = array($value, $expire, $path, $domain, $secure, $httponly);
         return $this;
     }
 
     public function setSession($name, $val) {
-        $this->session[$name] = $val;
-        return $this;
+        if (is_array($name)) {
+            $path = $name;
+        } else {
+            $path = func_get_args();
+            $val = array_pop($path);
+        }
+
+        $this->session[] = array($path, $val);
+        return true;
     }
 
     public function setHeader($name, $val = null) {
@@ -95,7 +102,26 @@ class Response extends Singleton {
         return $this;
     }
 
-    public function sendHeader($only_header = false) {
+    public function sendHeader() {
+        // session必须要先于header处理
+        // 否则会覆盖header内对于Cache-Control的处理
+        if ($this->session) {
+            if (!isset($_SESSION)) session_start();
+
+            foreach ($this->session as $sess) {
+                list($path, $val) = $sess;
+                array_set($_SESSION, $path, $val);
+            }
+
+            $this->session = array();
+        }
+
+        foreach ($this->cookie as $name => $config) {
+            list($value, $expire, $path, $domain, $secure, $httponly) = $config;
+            setCookie($name, $value, $expire, $path, $domain, $secure, $httponly);
+        }
+        $this->cookie = array();
+
         if (is_integer($this->code) && $this->code != 200) {
             if ($status = self::httpStatus($this->code))
                 header($status);
@@ -108,21 +134,6 @@ class Response extends Singleton {
             header($header);
         }
         $this->header = array();
-
-        if ($only_header) return $this;
-
-        if ($this->session) {
-            if (!isset($_SESSION)) session_start();
-            foreach ($this->session as $name => $val)
-                $_SESSION[$name] = $val;
-            $this->session = array();
-        }
-
-        foreach ($this->cookie as $name => $config) {
-            list($value, $expire, $path, $domain, $secure, $httponly) = $config;
-            setCookie($name, $value, $expire, $path, $domain, $secure, $httponly);
-        }
-        $this->cookie = array();
 
         return $this;
     }

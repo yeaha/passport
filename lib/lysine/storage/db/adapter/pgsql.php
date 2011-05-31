@@ -595,7 +595,7 @@ EOF;
      * @return string
      */
     public static function encodeArray(array $array) {
-        return sprintf('{"%s"}', implode('","', $array));
+        return $array ? sprintf('{"%s"}', implode('","', $array)) : null;
     }
 
     /**
@@ -611,7 +611,10 @@ EOF;
         if (!$hstore) return $result;
 
         foreach (preg_split('/"\s*,\s*"/', $hstore) as $pair) {
-            list($k, $v) = explode('=>', $pair);
+            $pair = explode('=>', $pair, 1);
+            if (count($pair) !== 2) continue;
+
+            list($k, $v) = $pair;
             $k = trim($k, '\'" ');
             $v = trim($v, '\'" ');
             $result[$k] = $v;
@@ -629,25 +632,31 @@ EOF;
      * @return string
      */
     public static function encodeHstore(array $array, $new_style = false) {
+        if (!$array) return null;
+
         if (!$new_style) {
             $result = array();
             foreach ($array as $k => $v) {
-                $v = str_replace('"', '\"', $v);
+                $v = str_replace('\\', '\\\\\\\\', $v);
+                $v = str_replace('"', '\\\\"', $v);
+                $v = str_replace("'", "\\'", $v);
                 $result[] = sprintf('"%s"=>"%s"', $k, $v);
             }
-            return implode(',', $result);
+            return new Expr('E\''. implode(',', $result) .'\'::hstore');
         } else {
             $result = 'hstore(ARRAY[%s], ARRAY[%s])';
             $cols = $vals = array();
             foreach ($array as $k => $v) {
+                $v = str_replace('\\', '\\\\', $v);
+                $v = str_replace("'", "\\'", $v);
                 $cols[] = $k;
-                $vals[] = str_replace("'", "''", $v);
+                $vals[] = $v;
             }
 
             return new Expr(sprintf(
                 $result,
                 "'". implode("','", $cols) ."'",
-                "'". implode("','", $vals) ."'"
+                "E'". implode("',E'", $vals) ."'"
             ));
         }
     }

@@ -21,19 +21,18 @@ class Passport extends DBData {
     );
 
     protected function __before_save() {
-        $props = array(
-            'update_time' => date('Y-m-d H:i:sP'),
-        );
+        $this->update_time = date('Y-m-d H:i:sP');
+    }
 
-        if (!$this->sn) $props['sn'] = uuid();
-        if (!$this->create_time) $props['create_time'] = $props['update_time'];
-
-        $this->setProp($props);
+    protected function __before_insert() {
+        if (!$this->sn) $this->sn = uuid();
+        $this->create_time = date('Y-m-d H:i:sP');
     }
 
     protected function formatProp($prop, $val, array $prop_meta) {
         $val = parent::formatProp($prop, $val, $prop_meta);
         if ($prop == 'email' && $val) return strtolower($val);
+        if ($prop == 'passwd') return md5($val);
         return $val;
     }
 

@@ -27,7 +27,18 @@ if (!function_exists('render_view')) {
     function render_view($file, $vars = null) {
         static $view;
         if (!$view) $view = new MVC\View;
+        if (DEBUG) \Lysine\logger('mvc')->info('Render view file ['. $file .']');
         return $view->reset()->render($file, $vars);
+    }
+}
+
+if (!function_exists('now')) {
+    // 得到当前时间
+    // return integer or string
+    function now($format = null) {
+        static $now = null;
+        if ($now === null) $now = time();
+        return $format ? date($format, $now) : $now;
     }
 }
 
@@ -41,10 +52,10 @@ function set_header($name, $val = null) {
 }
 
 function set_session($name, $val) {
-    return resp()->setSession($name, $val);
+    return call_user_func_array(array(resp(), 'setSession'), func_get_args());
 }
 
-function set_cookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = false) {
+function set_cookie($name, $value, $expire = 0, $path = '/', $domain = null, $secure = false, $httponly = true) {
     return resp()->setCookie($name, $value, $expire, $path, $domain, $secure, $httponly);
 }
 
@@ -82,6 +93,22 @@ function request($key = null, $default = null) {
     return isset($_REQUEST[$key]) ? $_REQUEST[$key] : put($key, $default);
 }
 
+function has_get($key) {
+    return array_key_exists($key, $_GET);
+}
+
+function has_post($key) {
+    return array_key_exists($key, $_POST);
+}
+
+function has_put($key) {
+    return array_key_exists($key, put());
+}
+
+function has_request($key) {
+    return array_key_exists($key, $_REQUEST);
+}
+
 function env($key = null, $default = false) {
     if ($key === null) return $_ENV;
     $key = strtoupper($key);
@@ -94,14 +121,17 @@ function server($key = null, $default = false) {
     return isset($_SERVER[$key]) ? $_SERVER[$key] : $default;
 }
 
-function session() {
+function session($path = null) {
     if (!isset($_SESSION)) session_start();
-    return array_get($_SESSION, func_get_args());
+    if ($path === null) return $_SESSION;
+
+    return array_get($_SESSION, is_array($path) ? $path : func_get_args());
 }
 
-function cookie() {
-    if (!isset($_COOKIE)) return false;
-    return array_get($_COOKIE, func_get_args());
+function cookie($path = null) {
+    if ($path === null) return $_COOKIE;
+
+    return array_get($_COOKIE, is_array($path) ? $path : func_get_args());
 }
 
 function logger($name) {
@@ -137,14 +167,6 @@ function pg_decode_hstore($hstore) {
 // 把转换php数组为postgresql hstore数据
 function pg_encode_hstore($php_array, $new_style = false) {
     return Pgsql::encodeHstore($php_array, $new_style);
-}
-
-function url() {
-    static $router_class;
-    if (!$router_class) $router_class = get_class(app()->getRouter());
-
-    $args = func_get_args();
-    return forward_static_call_array(array($router_class, 'url'), $args);
 }
 
 /**
@@ -294,80 +316,4 @@ function cal_page($total, $page_size, $current_page = 1) {
     }
 
     return $page;
-}
-
-function dump($var) {
-    echo '<pre>';
-    var_dump($var);
-    echo '</pre>';
-}
-
-/**
- * 当前unix timestamp
- * 可指定format格式化返回值
- *
- * @param string $format
- * @access public
- * @return mixed
- */
-function now($format = null) {
-    static $now = null;
-    if ($now === null) $now = time();
-    return $format ? date($format, $now) : $now;
-}
-
-function add($a, $b) {
-    return $a + $b;
-}
-
-function sub($a, $b) {
-    return $a - $b;
-}
-
-function mul($a, $b) {
-    return $a * $b;
-}
-
-function div($a, $b) {
-    return $a / $b;
-}
-
-function mod($a, $b) {
-    return $a % $b;
-}
-
-function divmod($a, $b) {
-    return array(floor(div($a, $b)), mod($a, $b));
-}
-
-function inc($n) {
-    return $n + 1;
-}
-
-function dec($n) {
-    return $n - 1;
-}
-
-function eq($a, $b) {
-    return $a === $b;
-}
-
-function comp($a, $b) {
-    return $a == $b;
-}
-
-function great($a, $b) {
-    return $a > $b;
-}
-
-function less($a, $b) {
-    return $a < $b;
-}
-
-function negative($n) {
-    return $n < 0;
-}
-
-function positive($n) {
-    return $n > 0;
 }

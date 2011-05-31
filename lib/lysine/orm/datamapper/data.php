@@ -63,6 +63,10 @@ abstract class Data extends ORM implements IData {
         return $this->setProp($prop, $val);
     }
 
+    public function hasProp($prop) {
+        return (bool)static::getMeta()->getPropMeta($prop);
+    }
+
     public function getProp($prop) {
         if (!$prop_meta = static::getMeta()->getPropMeta($prop))
             throw Error::undefined_property(get_class($this), $prop);
@@ -94,6 +98,10 @@ abstract class Data extends ORM implements IData {
                 throw OrmError::refuse_update($this, $prop);
 
             $val = $this->formatProp($prop, $val, $prop_meta);
+
+            if (!$prop_meta['allow_null'] && $val === null)
+                throw OrmError::not_allow_null($this, $prop);
+
             $this->changeProp($prop, $val);
         }
 
@@ -101,20 +109,26 @@ abstract class Data extends ORM implements IData {
     }
 
     protected function changeProp($prop, $val) {
+        if (!isset($this->props[$prop])) {
+            if ($val === null) return;
+        } elseif ($val === $this->props[$prop]) {
+            return;
+        }
+
         $this->props[$prop] = $val;
         if (!in_array($prop, $this->dirty_props))
             $this->dirty_props[] = $prop;
     }
 
     protected function formatProp($prop, $val, array $prop_meta) {
+        if ($val === null) return $val;
+        if ($val === '') return null;
+
         $type = $prop_meta['type'];
         switch ($type) {
-            case 'integer':
             case 'int':
+            case 'integer':
                 return (int)$val;
-            case 'boolean':
-            case 'bool':
-                return (bool)$val;
             case 'float':
             case 'real':
             case 'double':
@@ -122,11 +136,8 @@ abstract class Data extends ORM implements IData {
             case 'string':
             case 'text':
                 return (string)$val;
-            case 'datetime':
-            case 'date':
-            case 'time':
-                if (!$val) return null;
         }
+
         return $val;
     }
 

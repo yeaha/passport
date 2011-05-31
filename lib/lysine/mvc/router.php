@@ -172,7 +172,7 @@ class Router extends Router_Abstract {
     protected function match($url) {
         foreach ($this->dispatch_rewrite as $re => $class) {
             if (preg_match($re, $url, $match)) {
-                if (DEBUG) \Lysine\logger('mvc')->debug('Found url rewrite rule: '. $re);
+                if (DEBUG) \Lysine\logger('mvc')->debug('Match rewrite rule: '. $re);
                 return array($class, array_slice($match, 1));
             }
         }
@@ -199,12 +199,12 @@ class Router extends Router_Abstract {
         if (DEBUG) $logger = \Lysine\logger('mvc');
 
         $url = strtolower(rtrim($url, '/'));
-        if (DEBUG) $logger->debug('Dispatch url:'. $url);
+        if (DEBUG) $logger->info('Request url:'. req()->requestUri());
 
         list($class, $args) = $this->match($url);
-        if (DEBUG) $logger->debug('Match url controller as '. $class);
+        if (DEBUG) $logger->debug('Dispatch url to controller: '. $class);
 
-        if (!$class || !class_exists($class)) throw HttpError::page_not_found($url, array('controller' => $class));
+        if (!$class || !class_exists($class)) throw HttpError::page_not_found(array('controller' => $class));
 
         if ($params) $args = array_merge($args, $params);
         fire_event($this, BEFORE_DISPATCH_EVENT, array($url, $class, $args));
@@ -221,21 +221,8 @@ class Router extends Router_Abstract {
         $request = req();
         $method = $request->method();
         // head方法除了不输出数据之外，和get方法没有区别
-        if ($method == 'head') $method = 'get';
+        if ($method == 'HEAD') $method = 'GET';
 
-        if ($request->isAJAX()) {
-            if (method_exists($controller, 'ajax_'. $method)) {
-                $method = 'ajax_'. $method;
-            } elseif (method_exists($controller, 'ajax')) {
-                $method = 'ajax';
-            }
-        } elseif ($request->isFlash()) {
-            if (method_exists($controller, 'flash_'. $method)) {
-                $method = 'flash_'. $method;
-            } elseif (method_exists($controller, 'flash')) {
-                $method = 'flash';
-            }
-        }
         if (DEBUG) {
             $log = 'Call controller ['. $class .'] method ['. $method .']';
             if ($args) $log .= ' with '. json_encode($args);
@@ -246,9 +233,9 @@ class Router extends Router_Abstract {
         // 不检查method是否存在，用is_callable()
         // 保留__call()重载方法的方式
         if (!is_callable(array($controller, $method)))
-            throw HttpError::method_not_allowed($method, array(
+            throw HttpError::method_not_allowed(array(
                 'url' => $url,
-                'controller' => $class,
+                'class' => $class,
             ));
         $resp = call_user_func_array(array($controller, $method), $args);
 

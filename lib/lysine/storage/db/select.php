@@ -151,36 +151,6 @@ class Select {
     }
 
     /**
-     * 直接调用查询结果对象
-     *
-     * <code>
-     * 获得结果的第2行
-     * $select->getCols(1);
-     * 等于
-     * $select->execute()->getCols(1);
-     * </code>
-     *
-     * @param string $fn
-     * @param mixed $args
-     * @access public
-     * @return mixed
-     */
-    public function __call($fn, $args) {
-        $sth = $this->execute();
-        return call_user_func_array(array($sth, $fn), $args);
-    }
-
-    /**
-     * 魔法方法
-     *
-     * @access public
-     * @return void
-     */
-    public function __clone() {
-        $this->reset();
-    }
-
-    /**
      * 复位到初始状态
      * 只保留from和adapter
      *
@@ -525,6 +495,26 @@ class Select {
     }
 
     /**
+     * 生成sql语句的from部分
+     *
+     * $select->from($other_select)
+     * select * from (select * from table) as t
+     *
+     * @access public
+     * @return array
+     */
+    public function compileFrom() {
+        $bind = array();
+        if ($this->from instanceof Select) {
+            list($sql, $bind) = $this->from->compile();
+            $from = sprintf('(%s) AS %s', $sql, $this->adapter->qtab(uniqid()));
+        } else {
+            $from = $this->adapter->qtab($this->from);
+        }
+        return array($from, $bind);
+    }
+
+    /**
      * 生成sql语句
      *
      * @access public
@@ -535,9 +525,11 @@ class Select {
 
         $cols = empty($this->cols) ? '*' : implode(',', $adapter->qcol($this->cols));
 
-        $sql = sprintf('SELECT %s FROM %s', $cols, $adapter->qtab($this->from));
+        list($from, $from_bind) = $this->compileFrom();
+        $sql = sprintf('SELECT %s FROM %s', $cols, $from);
 
         list($where, $bind) = $this->compileWhere();
+        if ($from_bind) $bind = array_merge($from_bind, $bind);
         if ($where) $sql .= sprintf(' WHERE %s', $where);
 
         if ($this->group) {
@@ -590,6 +582,19 @@ class Select {
     public function setProcessor($processor) {
         $this->processor = $processor;
         return $this;
+    }
+
+    /**
+     * 使用定义的预处理方法处理数据库返回的行
+     *
+     * @param array $row 
+     * @access public
+     * @return mixed
+     */
+    public function process(array $row) {
+        return $this->processor
+             ? call_user_func($this->processor, $row)
+             : $row;
     }
 
     /**
@@ -697,5 +702,63 @@ class Select {
             throw new \LogicException('CAN NOT UPDATE while specify LIMIT or OFFSET');
 
         return $this->adapter->update($this->from, $set, $where, $bind);
+    }
+
+    /**
+     * 返回迭代器
+     * 和get()方法不同的是，get()方法直接生成完整的集合
+     * 迭代器在每次迭代时才生成结果
+     * 结果集不大的情况下，迭代器和get()都可以达到目的
+     * 结果集很大的情况下，用迭代器可以大大节省内存
+     *
+     * @access public
+     * @return \NoRewindIterator
+     */
+    public function iterator() {
+        return new \NoRewindIterator(
+            new SelectIterator($this)
+        );
+    }
+}
+
+/**
+ * $select = \Model\User::select();
+ *
+ * foreach ($select->iterator() as $user)
+ *     echo $user->id() . PHP_EOL;
+ */
+class SelectIterator implements \Iterator {
+    private $res;
+    private $select;
+    private $row_count;
+    private $pos = 0;
+
+    public function __construct(Select $select) {
+        $this->res = $select->execute();
+        $this->row_count = $this->res->rowCount();
+        $this->select = $select;
+    }
+
+    public function current() {
+        return $this->select->process(
+            $this->res->getRow()
+        );
+    }
+
+    public function key() {
+        return $this->pos;
+    }
+
+    public function next() {
+        $this->pos++;
+    }
+
+    public function rewind() {
+        $this->res->closeCursor();
+        $this->pos = 0;
+    }
+
+    public function valid() {
+        return $this->pos < $this->row_count;
     }
 }

@@ -141,11 +141,9 @@ abstract class Adapter implements IAdapter {
             // 可以定义自己的result class
             $options[\PDO::ATTR_STATEMENT_CLASS] = array('\Lysine\Storage\DB\Result');
 
-        $dbh = new \PDO($dsn, $user, $pass, $options);
-
+        $this->dbh = new \PDO($dsn, $user, $pass, $options);
         fire_event($this, CONNECT_EVENT, $this);
 
-        $this->dbh = $dbh;
         return $this;
     }
 
@@ -290,9 +288,8 @@ abstract class Adapter implements IAdapter {
             if ($val instanceof Expr) {
                 $vals[] = $val;
             } else {
-                $holder = ':'. $col;
-                $vals[] = $holder;
-                $bind[$holder] = $val;
+                $vals[] = '?';
+                $bind[] = $val;
             }
         }
 

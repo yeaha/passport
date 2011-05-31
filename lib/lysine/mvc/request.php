@@ -42,12 +42,12 @@ class Request extends Singleton {
     public function file() {
     }
 
-    public function cookie() {
-        return call_user_func_array('cookie', func_get_args());
+    public function cookie($key = null, $default = false) {
+        return cookie($key, $default);
     }
 
-    public function session() {
-        return call_user_func_array('session', func_get_args());
+    public function session($key = null, $default = false) {
+        return session($key, $default);
     }
 
     public function header($key) {
@@ -60,21 +60,19 @@ class Request extends Singleton {
     public function method() {
         if ($this->method) return $this->method;
 
-        $method = strtolower($this->header('x-http-method-override') ?: server('request_method'));
-        if ($method != 'post') return $this->method = $method;
+        $method = strtoupper($this->header('x-http-method-override') ?: server('request_method'));
+        if ($method != 'POST') return $this->method = $method;
 
         // 某些js库的ajax封装使用这种方式
         $method = post('_method', $method);
         unset($_POST['_method']);
-        return $this->method = strtolower($method);
+        return $this->method = strtoupper($method);
     }
 
     public function requestUri() {
         if ($this->requestUri !== null) return $this->requestUri;
 
-        if ($uri = server('http_x_rewrite_url')) return $this->requestUri = $uri;
-
-        if ($uri = server('request_uri')) return $this->requestUri = $uri;
+        if ($uri = server('http_x_rewrite_url') ?: server('request_uri')) return $this->requestUri = $uri;
 
         if ($uri = server('orig_path_info')) {
             $query = server('query_string');
@@ -93,23 +91,23 @@ class Request extends Singleton {
     }
 
     public function isGET() {
-        return ($this->method() === 'get') ?: $this->isHEAD();
+        return ($this->method() === 'GET') ?: $this->isHEAD();
     }
 
     public function isPOST() {
-        return $this->method() === 'post';
+        return $this->method() === 'POST';
     }
 
     public function isPUT() {
-        return $this->method() === 'put';
+        return $this->method() === 'PUT';
     }
 
     public function isDELETE() {
-        return $this->method() === 'delete';
+        return $this->method() === 'DELETE';
     }
 
     public function isHEAD() {
-        return $this->method() === 'head';
+        return $this->method() === 'HEAD';
     }
 
     public function isAJAX() {
@@ -159,10 +157,13 @@ class Request extends Singleton {
         return server('http_referer');
     }
 
-    public function ip() {
-        $ip = server('remote_addr');
-        if (!function_exists('filter_var')) return $ip;
+    public function ip($proxy = false) {
+        $ip = null;
+        if ($proxy)
+            $ip = server('http_client_ip') ?: server('http_x_forwarded_for');
+        $ip = $ip ?: server('remote_addr');
 
+        if (!function_exists('filter_var')) return $ip;
         return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) ?: '0.0.0.0';
     }
 }
