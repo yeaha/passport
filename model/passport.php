@@ -2,7 +2,7 @@
 namespace Model;
 
 use Lysine\HttpError;
-use Lysine\ORM\DataMapper\DBData;
+use Lysine\DataMapper\DBData;
 
 /**
  * Passport
